@@ -9,6 +9,7 @@ import { Home, Users, Settings, BarChart3 } from "lucide-react"
 import { OwnerQuestionnaire } from "@/components/owner-questionnaire"
 import TenantsPage from "./tenants/page"
 import { useTenantProfiles } from "@/hooks/use-tenant-profiles"
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog"
 
 export default function Dashboard() {
   const { tenants } = useTenantProfiles()
@@ -203,7 +204,28 @@ export default function Dashboard() {
                     <p className="text-gray-600 mb-4">
                       This section will contain your property listings and management tools.
                     </p>
-                    <Button variant="outline">Add Property</Button>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="outline">Add Property</Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Ajouter une propriété</DialogTitle>
+                          <DialogDescription>
+                            Merci de renseigner l'URL de l'annonce leboncoin.fr
+                          </DialogDescription>
+                        </DialogHeader>
+                        <form className="space-y-4">
+                          <input type="url" placeholder="https://www.leboncoin.fr/annonce/..." className="w-full border rounded px-3 py-2" required />
+                          <DialogFooter>
+                            <Button type="submit">Valider</Button>
+                            <DialogClose asChild>
+                              <Button type="button" variant="outline">Annuler</Button>
+                            </DialogClose>
+                          </DialogFooter>
+                        </form>
+                      </DialogContent>
+                    </Dialog>
                   </div>
                 </CardContent>
               </Card>
