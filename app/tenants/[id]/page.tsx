@@ -22,12 +22,17 @@ import Link from "next/link"
 import { useParams } from "next/navigation"
 import { useEffect, useState } from "react"
 import { createClient, type TenantProfile } from "@/lib/supabase"
+import { useTenantProfiles } from "@/hooks/use-tenant-profiles"
 
 export default function TenantDetailPage() {
   const params = useParams()
   const [tenant, setTenant] = useState<TenantProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [sending, setSending] = useState(false)
+  const [successMsg, setSuccessMsg] = useState<string | null>(null)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const { sendSchedulingLink } = useTenantProfiles()
 
   useEffect(() => {
     const fetchTenant = async () => {
@@ -274,9 +279,22 @@ export default function TenantDetailPage() {
 
           {/* Action Buttons */}
           <div className="flex gap-4 mt-8">
-            <Button className="flex-1" size="lg">
+            <Button className="flex-1" size="lg" onClick={async () => {
+              if (!tenant?.id) return;
+              setSending(true)
+              setSuccessMsg(null)
+              setErrorMsg(null)
+              try {
+                await sendSchedulingLink(tenant.id)
+                setSuccessMsg("Scheduling link sent!")
+              } catch (e: any) {
+                setErrorMsg(e.message || "Error sending link")
+              } finally {
+                setSending(false)
+              }
+            }} disabled={sending}>
               <Calendar className="w-4 h-4 mr-2" />
-              Send Scheduling Link
+              {sending ? "Sending..." : "Send Scheduling Link"}
             </Button>
             <Button variant="outline" className="flex-1" size="lg">
               <Mail className="w-4 h-4 mr-2" />
@@ -286,6 +304,8 @@ export default function TenantDetailPage() {
               Reject Application
             </Button>
           </div>
+          {successMsg && <div className="text-green-600 mt-2">{successMsg}</div>}
+          {errorMsg && <div className="text-red-600 mt-2">{errorMsg}</div>}
         </div>
       </div>
     </div>
