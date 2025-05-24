@@ -4,32 +4,12 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js"
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
+// Log unique et concis
+console.log(`[SUPABASE] Initialisation: URL=${supabaseUrl ? supabaseUrl.substring(0, 20) + '...' : 'undefined'}`)
+
 export function createClient() {
-  // Log ALL environment variables for debugging
-  console.log("=== ALL ENVIRONMENT VARIABLES ===")
-  console.log("Full process.env:", process.env)
-  console.log("=====================================")
-
-  // Log specific Supabase variables
-  console.log("NEXT_PUBLIC_SUPABASE_URL:", process.env.NEXT_PUBLIC_SUPABASE_URL)
-  console.log("NEXT_PUBLIC_SUPABASE_ANON_KEY:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-  console.log("SUPABASE_URL:", process.env.SUPABASE_URL)
-  console.log("SUPABASE_ANON_KEY:", process.env.SUPABASE_ANON_KEY)
-  console.log("SUPABASE_SERVICE_ROLE_KEY:", process.env.SUPABASE_SERVICE_ROLE_KEY)
-  console.log("SUPABASE_JWT_SECRET:", process.env.SUPABASE_JWT_SECRET)
-
-  // Check what's actually available
-  console.log("Available env keys:", Object.keys(process.env))
-
-  // Log the values we're using
-  console.log("supabaseUrl variable:", supabaseUrl)
-  console.log("supabaseAnonKey variable:", supabaseAnonKey)
-
   if (!supabaseUrl || !supabaseAnonKey) {
     console.warn("❌ Supabase environment variables missing")
-    console.log("supabaseUrl exists:", !!supabaseUrl)
-    console.log("supabaseAnonKey exists:", !!supabaseAnonKey)
-
     // Return a mock client that will fail gracefully
     return {
       from: () => ({
@@ -38,8 +18,6 @@ export function createClient() {
       }),
     } as any
   }
-
-  console.log("✅ Creating Supabase client with URL:", supabaseUrl?.substring(0, 20) + "...")
   return createSupabaseClient(supabaseUrl, supabaseAnonKey)
 }
 

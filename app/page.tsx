@@ -7,9 +7,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Home, Users, Settings, BarChart3 } from "lucide-react"
 import { OwnerQuestionnaire } from "@/components/owner-questionnaire"
-import { TenantProfiles } from "@/components/tenant-profiles"
+import TenantsPage from "./tenants/page"
+import { useTenantProfiles } from "@/hooks/use-tenant-profiles"
 
 export default function Dashboard() {
+  const { tenants } = useTenantProfiles()
   const [activeTab, setActiveTab] = useState("overview")
   const [questionnaireCompleted, setQuestionnaireCompleted] = useState(false)
 
@@ -52,7 +54,7 @@ export default function Dashboard() {
                 Tenants
                 {questionnaireCompleted && (
                   <Badge variant="secondary" className="ml-1 text-xs">
-                    5
+                    {tenants.length}
                   </Badge>
                 )}
               </TabsTrigger>
@@ -171,7 +173,7 @@ export default function Dashboard() {
             {/* Tenants Tab */}
             <TabsContent value="tenants">
               {questionnaireCompleted ? (
-                <TenantProfiles />
+                <TenantsPage />
               ) : (
                 <Card>
                   <CardHeader>

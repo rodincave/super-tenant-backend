@@ -33,7 +33,22 @@ export function OwnerQuestionnaire({ onComplete }: OwnerQuestionnaireProps) {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [supabaseConnected, setSupabaseConnected] = useState<boolean | null>(null)
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    priorities: string[];
+    tenantCategories: string[];
+    studentField: string;
+    studentFieldPreference: string;
+    professionalSector: string;
+    professionalSectorPreference: string;
+    minFinancialRequirement: string;
+    financialRequirements: string[];
+    leaseType: string;
+    minStay: string;
+    acceptances: string[];
+    lifestyleMatters: string[];
+    dealbreakers: string[];
+    [key: string]: any;
+  }>({
     priorities: [],
     tenantCategories: [],
     studentField: "",
@@ -48,6 +63,8 @@ export function OwnerQuestionnaire({ onComplete }: OwnerQuestionnaireProps) {
     lifestyleMatters: [],
     dealbreakers: [],
   })
+  const [alreadySubmitted, setAlreadySubmitted] = useState(false)
+  const [validationError, setValidationError] = useState<string | null>(null)
 
   const supabase = createClient()
 
@@ -65,6 +82,27 @@ export function OwnerQuestionnaire({ onComplete }: OwnerQuestionnaireProps) {
     console.log("🚀 Component mounted, starting to load preferences...")
     loadExistingPreferences()
   }, [])
+
+  useEffect(() => {
+    const checkSubmitted = async () => {
+      setLoading(true)
+      // On vérifie d'abord localStorage (pour la démo), puis Supabase si connecté
+      let submitted = false
+      if (supabaseConnected) {
+        const { data } = await supabase
+          .from("owner_preferences")
+          .select("id")
+          .eq("owner_id", "demo-owner-1")
+          .single()
+        if (data) submitted = true
+      } else {
+        submitted = !!localStorage.getItem("ownerPreferencesSubmitted")
+      }
+      setAlreadySubmitted(submitted)
+      setLoading(false)
+    }
+    checkSubmitted()
+  }, [supabaseConnected])
 
   const testSupabaseConnection = async () => {
     console.log("🔍 Testing Supabase connection...")
@@ -195,84 +233,103 @@ export function OwnerQuestionnaire({ onComplete }: OwnerQuestionnaireProps) {
     }
   }
 
+  function validateSection(section: number): string | null {
+    switch (section) {
+      case 1:
+        if (formData.priorities.length === 0) return "Veuillez sélectionner au moins une priorité.";
+        break;
+      case 2:
+        if (formData.tenantCategories.length === 0) return "Veuillez sélectionner au moins une catégorie de locataire.";
+        if (formData.tenantCategories.includes("Student") && !formData.studentField)
+          return "Veuillez indiquer si vous souhaitez connaître le domaine d'étude.";
+        if (formData.tenantCategories.includes("Student") && formData.studentField === "yes" && !formData.studentFieldPreference)
+          return "Veuillez préciser les domaines d'étude acceptés.";
+        break;
+      case 3:
+        if (!formData.minFinancialRequirement) return "Veuillez choisir un critère financier minimum.";
+        if (formData.financialRequirements.length === 0) return "Veuillez sélectionner au moins un document requis.";
+        break;
+      case 4:
+        if (!formData.leaseType) return "Veuillez choisir un type de bail.";
+        if (!formData.minStay) return "Veuillez indiquer la durée minimale de séjour.";
+        if (formData.acceptances.length === 0) return "Veuillez indiquer au moins une acceptation.";
+        break;
+      case 5:
+        if (formData.lifestyleMatters.length === 0) return "Veuillez sélectionner au moins une préférence de mode de vie.";
+        break;
+      case 6:
+        if (formData.dealbreakers.length === 0) return "Veuillez sélectionner au moins un point rédhibitoire.";
+        break;
+      default:
+        break;
+    }
+    return null
+  }
+
   const handleSubmit = async () => {
-    console.log("💾 Starting to save preferences...")
-    setSaving(true)
     setError(null)
-
-    try {
-      // Always save to localStorage first
-      console.log("📱 Saving to localStorage...")
-      localStorage.setItem("ownerPreferences", JSON.stringify(formData))
-      console.log("✅ Saved to localStorage successfully")
-
-      // Try to save to Supabase if connected
-      if (supabaseConnected) {
-        console.log("🗃️ Supabase is connected, attempting to save to database...")
-        try {
-          const preferencesData: Omit<OwnerPreferences, "id" | "created_at" | "updated_at"> = {
-            owner_id: "demo-owner-1",
-            priorities: formData.priorities,
-            tenant_category: formData.tenantCategories.join(", "),
-            student_field: formData.studentField,
-            student_field_preference: formData.studentFieldPreference,
-            professional_sector: formData.professionalSector,
-            professional_sector_preference: formData.professionalSectorPreference,
-            min_financial_requirement: formData.minFinancialRequirement,
-            financial_requirements: formData.financialRequirements,
-            lease_type: formData.leaseType,
-            min_stay: formData.minStay,
-            acceptances: formData.acceptances,
-            lifestyle_matters: formData.lifestyleMatters,
-            relationship_management: "",
-            dealbreakers: formData.dealbreakers,
-          }
-
-          console.log("📤 Sending data to Supabase:", preferencesData)
-
-          const { data, error } = await supabase
-            .from("owner_preferences")
-            .upsert([preferencesData], {
-              onConflict: "owner_id",
-              ignoreDuplicates: false,
-            })
-            .select()
-
-          console.log("📊 Supabase save result:")
-          console.log("Data:", data)
-          console.log("Error:", error)
-
-          if (error) {
-            console.error("❌ Error saving to Supabase:")
-            console.log("Error code:", error.code)
-            console.log("Error message:", error.message)
-            console.log("Error details:", error.details)
-            console.log("📱 Data saved to localStorage only")
-          } else {
-            console.log("✅ Preferences saved successfully to Supabase!")
-          }
-        } catch (supabaseError) {
-          console.error("💥 Supabase save error (caught exception):")
-          console.log("Error:", supabaseError)
-          console.log("📱 Data saved to localStorage only")
-        }
-      } else {
-        console.log("🔌 Supabase not connected, data saved to localStorage only")
+    setValidationError(null)
+    if (alreadySubmitted) {
+      setError("Vous avez déjà validé ce questionnaire. Vous pouvez seulement consulter vos réponses.")
+      return
+    }
+    // Validation finale de toutes les sections
+    for (let i = 1; i <= 6; i++) {
+      const err = validateSection(i)
+      if (err) {
+        setValidationError(err)
+        setCurrentSection(i)
+        return
       }
-
+    }
+    setSaving(true)
+    try {
+      // Sauvegarde locale pour la démo
+      localStorage.setItem("ownerPreferences", JSON.stringify(formData))
+      localStorage.setItem("ownerPreferencesSubmitted", "true")
+      // Sauvegarde Supabase si connecté
+      if (supabaseConnected) {
+        const preferencesData = {
+          owner_id: "demo-owner-1",
+          priorities: formData.priorities,
+          tenant_category: formData.tenantCategories.join(", "),
+          student_field: formData.studentField,
+          student_field_preference: formData.studentFieldPreference,
+          professional_sector: formData.professionalSector,
+          professional_sector_preference: formData.professionalSectorPreference,
+          min_financial_requirement: formData.minFinancialRequirement,
+          financial_requirements: formData.financialRequirements,
+          lease_type: formData.leaseType,
+          min_stay: formData.minStay,
+          acceptances: formData.acceptances,
+          lifestyle_matters: formData.lifestyleMatters,
+          relationship_management: "",
+          dealbreakers: formData.dealbreakers,
+        }
+        await supabase
+          .from("owner_preferences")
+          .upsert([preferencesData], { onConflict: "owner_id", ignoreDuplicates: false })
+      }
       setSuccess(true)
-      console.log("🎉 Save process completed successfully!")
+      setAlreadySubmitted(true)
       setTimeout(() => {
-        console.log("🔄 Redirecting to tenant profiles...")
         onComplete()
       }, 1500)
     } catch (err) {
-      console.error("💥 Error in handleSubmit:")
-      console.log("Error:", err)
-      setError("Failed to save preferences. Please try again.")
+      setError("Erreur lors de la sauvegarde. Veuillez réessayer.")
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleNext = () => {
+    setValidationError(null)
+    const err = validateSection(currentSection)
+    if (err) {
+      setValidationError(err)
+      return
+    }
+    setCurrentSection((prev) => prev + 1)
   }
 
   const handleCheckboxChange = (field: string, value: string, checked: boolean) => {
@@ -293,12 +350,133 @@ export function OwnerQuestionnaire({ onComplete }: OwnerQuestionnaireProps) {
     }))
   }
 
+  // Ajout d'une fonction utilitaire pour savoir si un champ est manquant dans la section courante
+  function getFieldError(field: string): string | null {
+    switch (currentSection) {
+      case 1:
+        if (field === "priorities" && formData.priorities.length === 0 && validationError) return validationError;
+        break;
+      case 2:
+        if (field === "tenantCategories" && formData.tenantCategories.length === 0 && validationError) return validationError;
+        if (field === "studentField" && formData.tenantCategories.includes("Student") && !formData.studentField && validationError) return validationError;
+        if (field === "studentFieldPreference" && formData.tenantCategories.includes("Student") && formData.studentField === "yes" && !formData.studentFieldPreference && validationError) return validationError;
+        break;
+      case 3:
+        if (field === "minFinancialRequirement" && !formData.minFinancialRequirement && validationError) return validationError;
+        if (field === "financialRequirements" && formData.financialRequirements.length === 0 && validationError) return validationError;
+        break;
+      case 4:
+        if (field === "leaseType" && !formData.leaseType && validationError) return validationError;
+        if (field === "minStay" && !formData.minStay && validationError) return validationError;
+        if (field === "acceptances" && formData.acceptances.length === 0 && validationError) return validationError;
+        break;
+      case 5:
+        if (field === "lifestyleMatters" && formData.lifestyleMatters.length === 0 && validationError) return validationError;
+        break;
+      case 6:
+        if (field === "dealbreakers" && formData.dealbreakers.length === 0 && validationError) return validationError;
+        break;
+      default:
+        break;
+    }
+    return null;
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-blue-600" />
           <p className="text-lg text-gray-600">Loading your preferences...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (alreadySubmitted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
+        <div className="max-w-2xl w-full bg-white/80 rounded-xl shadow-xl p-8">
+          <h2 className="text-2xl font-bold mb-6 text-center text-green-700">Questionnaire validé</h2>
+          <div className="space-y-6">
+            <div>
+              <h3 className="font-semibold text-lg mb-2 text-gray-800">Priorités</h3>
+              <ul className="list-disc list-inside text-gray-700">
+                {formData.priorities.map((p: string) => <li key={p}>{p}</li>)}
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-semibold text-lg mb-2 text-gray-800">Catégories de locataires préférées</h3>
+              <ul className="list-disc list-inside text-gray-700">
+                {formData.tenantCategories.map((c: string) => <li key={c}>{c}</li>)}
+              </ul>
+              {formData.tenantCategories.includes("Student") && (
+                <div className="mt-2 ml-4">
+                  <div><span className="font-medium">Souhaite connaître le domaine d'étude :</span> {formData.studentField}</div>
+                  {formData.studentField === "yes" && (
+                    <div><span className="font-medium">Domaines acceptés :</span> {formData.studentFieldPreference}</div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div>
+              <h3 className="font-semibold text-lg mb-2 text-gray-800">Critères financiers</h3>
+              <div><span className="font-medium">Minimum requis :</span> {formData.minFinancialRequirement}</div>
+              <div><span className="font-medium">Documents exigés :</span></div>
+              <ul className="list-disc list-inside text-gray-700">
+                {formData.financialRequirements.map((d: string) => <li key={d}>{d}</li>)}
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-semibold text-lg mb-2 text-gray-800">Bail & Légal</h3>
+              <div><span className="font-medium">Type de bail :</span> {formData.leaseType}</div>
+              <div><span className="font-medium">Durée minimale :</span> {formData.minStay}</div>
+              <div><span className="font-medium">Acceptations :</span></div>
+              <ul className="list-disc list-inside text-gray-700">
+                {formData.acceptances.map((a: string) => <li key={a}>{a}</li>)}
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-semibold text-lg mb-2 text-gray-800">Mode de vie</h3>
+              <ul className="list-disc list-inside text-gray-700">
+                {formData.lifestyleMatters.map((l: string) => <li key={l}>{l}</li>)}
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-semibold text-lg mb-2 text-gray-800">Points rédhibitoires</h3>
+              <ul className="list-disc list-inside text-gray-700">
+                {formData.dealbreakers.map((d: string) => <li key={d}>{d}</li>)}
+              </ul>
+            </div>
+            <div className="flex justify-center mt-8">
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  localStorage.removeItem("ownerPreferences");
+                  localStorage.removeItem("ownerPreferencesSubmitted");
+                  setAlreadySubmitted(false);
+                  setFormData({
+                    priorities: [],
+                    tenantCategories: [],
+                    studentField: "",
+                    studentFieldPreference: "",
+                    professionalSector: "",
+                    professionalSectorPreference: "",
+                    minFinancialRequirement: "",
+                    financialRequirements: [],
+                    leaseType: "",
+                    minStay: "",
+                    acceptances: [],
+                    lifestyleMatters: [],
+                    dealbreakers: [],
+                  });
+                }}
+                className="px-6 py-2"
+              >
+                Réinitialiser le questionnaire
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -445,6 +623,7 @@ export function OwnerQuestionnaire({ onComplete }: OwnerQuestionnaireProps) {
                         </label>
                       ))}
                     </div>
+                    {getFieldError('priorities') && <div className="text-red-600 text-sm mt-1 text-center">{getFieldError('priorities')}</div>}
                     {formData.priorities.length > 0 && (
                       <div className="text-center">
                         <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
@@ -503,6 +682,7 @@ export function OwnerQuestionnaire({ onComplete }: OwnerQuestionnaireProps) {
                         </label>
                       ))}
                     </div>
+                    {getFieldError('tenantCategories') && <div className="text-red-600 text-sm mt-1 text-center">{getFieldError('tenantCategories')}</div>}
                     {formData.tenantCategories.length > 0 && (
                       <div className="text-center">
                         <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
@@ -541,6 +721,7 @@ export function OwnerQuestionnaire({ onComplete }: OwnerQuestionnaireProps) {
                             </Label>
                           </div>
                         </RadioGroup>
+                        {getFieldError('studentField') && <div className="text-red-600 text-sm mt-1">{getFieldError('studentField')}</div>}
                         {formData.studentField === "yes" && (
                           <div className="mt-6">
                             <Label htmlFor="student-fields" className="text-base font-medium mb-2 block">
@@ -555,6 +736,7 @@ export function OwnerQuestionnaire({ onComplete }: OwnerQuestionnaireProps) {
                               }
                               className="mt-2 p-3 text-base"
                             />
+                            {getFieldError('studentFieldPreference') && <div className="text-red-600 text-sm mt-1">{getFieldError('studentFieldPreference')}</div>}
                           </div>
                         )}
                       </div>
@@ -599,6 +781,7 @@ export function OwnerQuestionnaire({ onComplete }: OwnerQuestionnaireProps) {
                           </label>
                         ))}
                       </RadioGroup>
+                      {getFieldError('minFinancialRequirement') && <div className="text-red-600 text-sm mt-1">{getFieldError('minFinancialRequirement')}</div>}
                     </div>
 
                     <div>
@@ -635,6 +818,7 @@ export function OwnerQuestionnaire({ onComplete }: OwnerQuestionnaireProps) {
                           </label>
                         ))}
                       </div>
+                      {getFieldError('financialRequirements') && <div className="text-red-600 text-sm mt-1">{getFieldError('financialRequirements')}</div>}
                     </div>
                   </div>
                 )}
@@ -677,6 +861,7 @@ export function OwnerQuestionnaire({ onComplete }: OwnerQuestionnaireProps) {
                           </label>
                         ))}
                       </RadioGroup>
+                      {getFieldError('leaseType') && <div className="text-red-600 text-sm mt-1">{getFieldError('leaseType')}</div>}
                     </div>
 
                     <div>
@@ -708,6 +893,7 @@ export function OwnerQuestionnaire({ onComplete }: OwnerQuestionnaireProps) {
                           </label>
                         ))}
                       </RadioGroup>
+                      {getFieldError('minStay') && <div className="text-red-600 text-sm mt-1">{getFieldError('minStay')}</div>}
                     </div>
 
                     <div>
@@ -740,6 +926,7 @@ export function OwnerQuestionnaire({ onComplete }: OwnerQuestionnaireProps) {
                           </label>
                         ))}
                       </div>
+                      {getFieldError('acceptances') && <div className="text-red-600 text-sm mt-1">{getFieldError('acceptances')}</div>}
                     </div>
                   </div>
                 )}
@@ -789,6 +976,7 @@ export function OwnerQuestionnaire({ onComplete }: OwnerQuestionnaireProps) {
                           </label>
                         ))}
                       </div>
+                      {getFieldError('lifestyleMatters') && <div className="text-red-600 text-sm mt-1">{getFieldError('lifestyleMatters')}</div>}
                     </div>
                   </div>
                 )}
@@ -836,6 +1024,7 @@ export function OwnerQuestionnaire({ onComplete }: OwnerQuestionnaireProps) {
                           </label>
                         ))}
                       </div>
+                      {getFieldError('dealbreakers') && <div className="text-red-600 text-sm mt-1">{getFieldError('dealbreakers')}</div>}
                     </div>
                   </div>
                 )}
@@ -854,7 +1043,7 @@ export function OwnerQuestionnaire({ onComplete }: OwnerQuestionnaireProps) {
 
                   {currentSection < sections.length ? (
                     <Button
-                      onClick={() => setCurrentSection((prev) => prev + 1)}
+                      onClick={handleNext}
                       className="px-6 py-3 text-base bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
                       disabled={saving}
                     >
