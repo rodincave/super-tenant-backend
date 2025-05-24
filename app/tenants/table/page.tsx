@@ -31,6 +31,7 @@ import {
   ArrowLeft,
 } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 import { useTenantProfiles } from "@/hooks/use-tenant-profiles"
 
@@ -45,6 +46,7 @@ export default function TenantsTablePage() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [professionFilter, setProfessionFilter] = useState("all")
   const [selectedTenants, setSelectedTenants] = useState<number[]>([])
+  const router = useRouter()
 
   // Sorting function
   const handleSort = (field: SortField) => {
@@ -405,11 +407,9 @@ export default function TenantsTablePage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuItem asChild>
-                                <Link href={`/tenants/${tenant.id}`}>
-                                  <Eye className="mr-2 h-4 w-4" />
-                                  View Details
-                                </Link>
+                              <DropdownMenuItem onClick={() => router.push(`/tenants/${tenant.id}`)}>
+                                <Eye className="mr-2 h-4 w-4" />
+                                View Details
                               </DropdownMenuItem>
                               <DropdownMenuItem>
                                 <Mail className="mr-2 h-4 w-4" />
