@@ -5,16 +5,30 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Home, Users, Settings, BarChart3 } from "lucide-react"
+import { Home, Users, Settings, BarChart3, Loader2 } from "lucide-react"
 import { OwnerQuestionnaire } from "@/components/owner-questionnaire"
 import TenantsPage from "./tenants/page"
 import { useTenantProfiles } from "@/hooks/use-tenant-profiles"
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog"
+import { useProperties } from "@/hooks/use-properties"
+import { useRouter } from "next/navigation"
+import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogFooter, AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel } from "@/components/ui/alert-dialog"
 
 export default function Dashboard() {
   const { tenants } = useTenantProfiles()
   const [activeTab, setActiveTab] = useState("overview")
   const [questionnaireCompleted, setQuestionnaireCompleted] = useState(false)
+  const [propertyUrl, setPropertyUrl] = useState("")
+  const [propertyLoading, setPropertyLoading] = useState(false)
+  const [propertySuccess, setPropertySuccess] = useState<string | null>(null)
+  const [propertyError, setPropertyError] = useState<string | null>(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const { properties, loading: propertiesLoading, error: propertiesError, reload: reloadProperties } = useProperties()
+  const [selectedProperty, setSelectedProperty] = useState<any | null>(null)
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteAllLoading, setDeleteAllLoading] = useState(false)
+  const router = useRouter()
 
   // Check if questionnaire is completed (from localStorage or state)
   React.useEffect(() => {
@@ -23,6 +37,103 @@ export default function Dashboard() {
       setQuestionnaireCompleted(true)
     }
   }, [])
+
+  const handleAddProperty = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setPropertyLoading(true)
+    setPropertySuccess(null)
+    setPropertyError(null)
+    console.log("[AddProperty] Début de la soumission avec URL:", propertyUrl)
+    try {
+      const res = await fetch("/api/extract-property", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: propertyUrl }),
+      })
+      console.log("[AddProperty] Réponse brute:", res)
+      const data = await res.json().catch(err => {
+        console.error("[AddProperty] Erreur parsing JSON:", err)
+        return { error: "Erreur parsing JSON" }
+      })
+      console.log("[AddProperty] Data JSON:", data)
+      if (res.ok) {
+        setPropertySuccess("Propriété ajoutée avec succès !")
+        setPropertyUrl("")
+        setTimeout(() => {
+          setDialogOpen(false)
+          console.log("[AddProperty] Dialog fermé après succès")
+        }, 1200)
+      } else {
+        setPropertyError(data.error || "Erreur lors de l'ajout de la propriété.")
+        console.error("[AddProperty] Erreur API:", data.error)
+      }
+    } catch (err: any) {
+      setPropertyError(err.message || "Erreur réseau.")
+      console.error("[AddProperty] Exception JS:", err)
+    } finally {
+      setPropertyLoading(false)
+      console.log("[AddProperty] Fin de handleAddProperty, loading:", false)
+    }
+  }
+
+  // Fonction pour supprimer une propriété
+  async function handleDeleteProperty(id: number) {
+    if (!window.confirm("Supprimer cette propriété ?")) return;
+    setDeleting(true)
+    await fetch(`/api/properties/${id}`, { method: "DELETE" })
+    setDeleting(false)
+    setDetailOpen(false)
+    setSelectedProperty(null)
+    reloadProperties()
+  }
+
+  // Fonction pour supprimer toutes les propriétés
+  async function handleDeleteAll() {
+    if (!window.confirm("Supprimer TOUTES les propriétés ?")) return;
+    setDeleteAllLoading(true)
+    await fetch(`/api/properties`, { method: "DELETE" })
+    setDeleteAllLoading(false)
+    reloadProperties()
+  }
+
+  const fieldLabels: Record<string, string> = {
+    price: "Prix (€)",
+    surface: "Surface (m²)",
+    city: "Ville",
+    city_label: "Ville",
+    category_name: "Type d'annonce",
+    ad_type: "Type d'annonce",
+    status: "Statut",
+    first_publication_date: "Date de publication",
+    zipcode: "Code postal",
+    url: "Lien de l'annonce",
+    lat: "Latitude",
+    lng: "Longitude",
+    images: "Images",
+    attributes: "Attributs",
+    owner: "Propriétaire",
+    options: "Options",
+    attributes_listing: "Attributs de l'annonce",
+    similar_data: "Annonces similaires",
+    counters: "Compteurs",
+    country_id: "Pays",
+    region_id: "Région (id)",
+    region_name: "Région",
+    department_id: "Département (id)",
+    brand: "Marque",
+    body: "Description",
+    provider: "Fournisseur",
+    is_boosted: "Boostée",
+    has_phone: "Téléphone affiché",
+    nb_images: "Nombre d'images",
+    thumb_image: "Miniature",
+    search_url: "URL de recherche",
+    transport: "Transports",
+    point_of_interests: "Points d'intérêt",
+    expiration_date: "Expiration",
+    index_date: "Indexation",
+    list_id: "ID de l'annonce",
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -62,6 +173,11 @@ export default function Dashboard() {
               <TabsTrigger value="properties" className="flex items-center gap-2">
                 <Home className="w-4 h-4" />
                 Properties
+                {!propertiesLoading && (
+                  <Badge variant="secondary" className="ml-1 text-xs">
+                    {properties.length}
+                  </Badge>
+                )}
               </TabsTrigger>
             </TabsList>
 
@@ -204,7 +320,7 @@ export default function Dashboard() {
                     <p className="text-gray-600 mb-4">
                       This section will contain your property listings and management tools.
                     </p>
-                    <Dialog>
+                    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                       <DialogTrigger asChild>
                         <Button variant="outline">Add Property</Button>
                       </DialogTrigger>
@@ -215,18 +331,148 @@ export default function Dashboard() {
                             Merci de renseigner l'URL de l'annonce leboncoin.fr
                           </DialogDescription>
                         </DialogHeader>
-                        <form className="space-y-4">
-                          <input type="url" placeholder="https://www.leboncoin.fr/annonce/..." className="w-full border rounded px-3 py-2" required />
+                        <form className="space-y-4" onSubmit={async (e) => {
+                          await handleAddProperty(e)
+                          reloadProperties()
+                        }}>
+                          <input
+                            type="url"
+                            placeholder="https://www.leboncoin.fr/annonce/..."
+                            className="w-full border rounded px-3 py-2"
+                            required
+                            value={propertyUrl}
+                            onChange={e => setPropertyUrl(e.target.value)}
+                            disabled={propertyLoading}
+                          />
+                          {propertyError && (
+                            <div className="text-red-600 text-sm">{propertyError}</div>
+                          )}
+                          {propertySuccess && (
+                            <div className="text-green-600 text-sm">{propertySuccess}</div>
+                          )}
+                          {propertyLoading && (
+                            <div className="flex items-center justify-center py-4">
+                              <Loader2 className="animate-spin w-6 h-6 text-primary" />
+                              <span className="ml-2">Extraction et ajout en cours...</span>
+                            </div>
+                          )}
                           <DialogFooter>
-                            <Button type="submit">Valider</Button>
+                            <Button type="submit" disabled={propertyLoading || !propertyUrl}>
+                              {propertyLoading ? "Ajout..." : "Valider"}
+                            </Button>
                             <DialogClose asChild>
-                              <Button type="button" variant="outline">Annuler</Button>
+                              <Button type="button" variant="outline" disabled={propertyLoading}>Annuler</Button>
                             </DialogClose>
                           </DialogFooter>
                         </form>
                       </DialogContent>
                     </Dialog>
                   </div>
+                  {/* Liste des propriétés */}
+                  <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    {propertiesLoading && <div>Chargement des propriétés...</div>}
+                    {propertiesError && <div className="text-red-600">Erreur : {propertiesError}</div>}
+                    {!propertiesLoading && properties.length === 0 && <div>Aucune propriété enregistrée.</div>}
+                    {properties.map((property) => (
+                      <Card key={property.id} className="text-left">
+                        <CardHeader>
+                          <CardTitle>{property.subject || property.title || "Annonce"}</CardTitle>
+                          <CardDescription>{property.city_label || property.city || property.location || property.postal_code || property.url}</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          {property.images && property.images.length > 0 && (
+                            <img src={property.images[0]} alt="photo principale" className="mb-2 rounded w-full h-40 object-cover" />
+                          )}
+                          <div className="mb-2">
+                            <span className="font-semibold">Prix :</span> {property.price?.[0] || property.price_cents / 100 || property.price || "-"} €
+                          </div>
+                          <div className="mb-2">
+                            <span className="font-semibold">Surface :</span> {property.attributes?.square || property.surface || "-"} m²
+                          </div>
+                          <div className="flex gap-2 mt-2">
+                            <Button size="sm" variant="secondary" onClick={() => { setSelectedProperty(property); setDetailOpen(true); }}>
+                              View Details
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button size="sm" variant="destructive" disabled={deleting}>
+                                  {deleting ? "Suppression..." : "Supprimer"}
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Êtes-vous sûr de vouloir supprimer cette propriété ? Cette action est irréversible.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Annuler</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDeleteProperty(property.id)} disabled={deleting}>
+                                    Oui, supprimer
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                  {/* Dialog de détail propriété */}
+                  <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+                    <DialogContent className="max-w-5xl w-[95vw] max-h-[80vh] overflow-y-auto">
+                      <div className="max-w-2xl w-full mx-auto">
+                        <DialogHeader>
+                          <DialogTitle className="text-2xl font-bold">Détail de la propriété</DialogTitle>
+                        </DialogHeader>
+                        {selectedProperty && (
+                          <div>
+                            {selectedProperty.images && selectedProperty.images.length > 0 && (
+                              <img src={selectedProperty.images[0]} alt="photo principale" className="rounded-lg w-full h-72 object-contain mb-4 border bg-gray-100" />
+                            )}
+                            <div className="overflow-x-auto w-full">
+                              <table className="min-w-full text-sm border mb-4">
+                                <tbody>
+                                  {Object.entries(selectedProperty).map(([key, value], idx) => {
+                                    if (["id","created_at","updated_at"].includes(key)) return null;
+                                    // Emoji et style contextuel
+                                    let emoji = "";
+                                    let valueClass = "";
+                                    switch(key) {
+                                      case "price": emoji = "💶"; valueClass = "text-green-700 font-bold"; break;
+                                      case "surface": case "attributes": emoji = "📏"; valueClass = "text-blue-700 font-semibold"; break;
+                                      case "city": case "city_label": emoji = "🏙️"; valueClass = "text-purple-700 font-semibold"; break;
+                                      case "category_name": case "ad_type": emoji = "🏷️"; valueClass = "text-orange-700 font-semibold"; break;
+                                      case "status": emoji = "📢"; valueClass = "text-pink-700 font-semibold"; break;
+                                      case "first_publication_date": emoji = "📅"; valueClass = "text-gray-700"; break;
+                                      case "images": emoji = "🖼️"; break;
+                                      case "lat": case "lng": emoji = "📍"; break;
+                                      case "zipcode": emoji = "🏤"; break;
+                                      case "url": emoji = "🔗"; break;
+                                      default: emoji = "";
+                                    }
+                                    const label = fieldLabels[key] || key.replace(/_/g, " ");
+                                    return (
+                                      <tr key={key} className={idx % 2 === 0 ? "bg-gray-50" : "bg-white"}>
+                                        <td className="font-semibold px-2 py-1 w-1/3 capitalize flex items-center gap-1">{emoji} {label}</td>
+                                        <td className={"px-2 py-1 " + valueClass}>{typeof value === 'object' ? JSON.stringify(value) : String(value)}</td>
+                                      </tr>
+                                    )
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                            <DialogFooter>
+                              <DialogClose asChild>
+                                <Button type="button" variant="outline">Fermer</Button>
+                              </DialogClose>
+                            </DialogFooter>
+                          </div>
+                        )}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </CardContent>
               </Card>
             </TabsContent>
