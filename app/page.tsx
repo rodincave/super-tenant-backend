@@ -14,6 +14,8 @@ import { useProperties } from "@/hooks/use-properties"
 import { useRouter } from "next/navigation"
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogFooter, AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel } from "@/components/ui/alert-dialog"
 
+// Quick test change: commit & push check
+
 export default function Dashboard() {
   const { tenants } = useTenantProfiles()
   const [activeTab, setActiveTab] = useState("overview")
