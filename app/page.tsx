@@ -57,14 +57,14 @@ export default function Dashboard() {
       })
       console.log("[AddProperty] Data JSON:", data)
       if (res.ok) {
-        setPropertySuccess("Propriété ajoutée avec succès !")
+        setPropertySuccess("Property added successfully!")
         setPropertyUrl("")
         setTimeout(() => {
           setDialogOpen(false)
           console.log("[AddProperty] Dialog fermé après succès")
         }, 1200)
       } else {
-        setPropertyError(data.error || "Erreur lors de l'ajout de la propriété.")
+        setPropertyError(data.error || "Error while adding the property.")
         console.error("[AddProperty] Erreur API:", data.error)
       }
     } catch (err: any) {
@@ -78,7 +78,7 @@ export default function Dashboard() {
 
   // Fonction pour supprimer une propriété
   async function handleDeleteProperty(id: number) {
-    if (!window.confirm("Supprimer cette propriété ?")) return;
+    if (!window.confirm("Delete this property?")) return;
     setDeleting(true)
     await fetch(`/api/properties/${id}`, { method: "DELETE" })
     setDeleting(false)
@@ -89,7 +89,7 @@ export default function Dashboard() {
 
   // Fonction pour supprimer toutes les propriétés
   async function handleDeleteAll() {
-    if (!window.confirm("Supprimer TOUTES les propriétés ?")) return;
+    if (!window.confirm("Delete ALL properties?")) return;
     setDeleteAllLoading(true)
     await fetch(`/api/properties`, { method: "DELETE" })
     setDeleteAllLoading(false)
@@ -97,42 +97,42 @@ export default function Dashboard() {
   }
 
   const fieldLabels: Record<string, string> = {
-    price: "Prix (€)",
-    surface: "Surface (m²)",
-    city: "Ville",
-    city_label: "Ville",
-    category_name: "Type d'annonce",
-    ad_type: "Type d'annonce",
-    status: "Statut",
-    first_publication_date: "Date de publication",
-    zipcode: "Code postal",
-    url: "Lien de l'annonce",
+    price: "Price (€)",
+    surface: "Surface (sqm)",
+    city: "City",
+    city_label: "City",
+    category_name: "Listing type",
+    ad_type: "Listing type",
+    status: "Status",
+    first_publication_date: "Publication date",
+    zipcode: "Postal code",
+    url: "Listing link",
     lat: "Latitude",
     lng: "Longitude",
     images: "Images",
-    attributes: "Attributs",
-    owner: "Propriétaire",
+    attributes: "Attributes",
+    owner: "Owner",
     options: "Options",
-    attributes_listing: "Attributs de l'annonce",
-    similar_data: "Annonces similaires",
-    counters: "Compteurs",
-    country_id: "Pays",
-    region_id: "Région (id)",
-    region_name: "Région",
-    department_id: "Département (id)",
-    brand: "Marque",
+    attributes_listing: "Listing attributes",
+    similar_data: "Similar listings",
+    counters: "Counters",
+    country_id: "Country",
+    region_id: "Region (id)",
+    region_name: "Region",
+    department_id: "Department (id)",
+    brand: "Brand",
     body: "Description",
-    provider: "Fournisseur",
-    is_boosted: "Boostée",
-    has_phone: "Téléphone affiché",
-    nb_images: "Nombre d'images",
-    thumb_image: "Miniature",
-    search_url: "URL de recherche",
-    transport: "Transports",
-    point_of_interests: "Points d'intérêt",
+    provider: "Provider",
+    is_boosted: "Boosted",
+    has_phone: "Phone displayed",
+    nb_images: "Number of images",
+    thumb_image: "Thumbnail",
+    search_url: "Search URL",
+    transport: "Transport",
+    point_of_interests: "Points of interest",
     expiration_date: "Expiration",
-    index_date: "Indexation",
-    list_id: "ID de l'annonce",
+    index_date: "Indexing",
+    list_id: "Listing ID",
   };
 
   return (

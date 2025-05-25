@@ -177,6 +177,26 @@ export default function TenantDetailPage() {
                 </div>
               </div>
             </CardHeader>
+            {tenant.pros && (
+              <div className="mt-4">
+                <div className="font-semibold text-green-700 mb-1">✅ Pros</div>
+                <ul className="list-disc list-inside text-green-800 text-base bg-green-50 rounded p-3">
+                  {tenant.pros.split(/\n|\r|\r\n|\- /).filter(Boolean).map((pro, idx) => (
+                    <li key={idx}>{pro.replace(/^[-•\s]*/, "")}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {tenant.cons && (
+              <div className="mt-4">
+                <div className="font-semibold text-red-700 mb-1">❌ Cons</div>
+                <ul className="list-disc list-inside text-red-800 text-base bg-red-50 rounded p-3">
+                  {tenant.cons.split(/\n|\r|\r\n|\- /).filter(Boolean).map((con, idx) => (
+                    <li key={idx}>{con.replace(/^[-•\s]*/, "")}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </Card>
 
           <div className="grid gap-6 lg:grid-cols-2">
@@ -191,26 +211,26 @@ export default function TenantDetailPage() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <span className="text-sm font-medium text-gray-600">Revenu mensuel</span>
+                    <span className="text-sm font-medium text-gray-600">Monthly income</span>
                     <div className="text-lg font-semibold text-green-600">{tenant.monthly_income?.toLocaleString()}€</div>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-600">Type d'emploi</span>
+                    <span className="text-sm font-medium text-gray-600">Employment type</span>
                     <div className="text-sm">{tenant.employment_type}</div>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-600">Entreprise</span>
+                    <span className="text-sm font-medium text-gray-600">Company</span>
                     <div className="text-sm">{tenant.company_name}</div>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-600">Garant</span>
+                    <span className="text-sm font-medium text-gray-600">Guarantor</span>
                     <div className="text-sm">{tenant.guarantor_type} {tenant.guarantor_income ? `(${tenant.guarantor_income.toLocaleString()}€/mois)` : null}</div>
                   </div>
                 </div>
                 <Separator />
                 {/* Documents soumis (JSON) */}
                 <div>
-                  <span className="text-sm font-medium text-gray-600">Documents soumis</span>
+                  <span className="text-sm font-medium text-gray-600">Submitted documents</span>
                   <div className="text-xs bg-gray-50 p-2 rounded mt-1">
                     {tenant.documents_submitted ? (
                       <pre>{JSON.stringify(tenant.documents_submitted, null, 2)}</pre>
@@ -219,6 +239,44 @@ export default function TenantDetailPage() {
                     )}
                   </div>
                 </div>
+                {/* Documents vérifiés */}
+                <Card className="mt-4">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="w-5 h-5" />
+                      Verified documents
+                    </CardTitle>
+                    <CardDescription>Document validation status</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex flex-col gap-2">
+                      <div>
+                        <span className="font-medium">ID document :</span>
+                        {tenant.tenant_document_id_valid
+                          ? <Badge className="ml-2 bg-green-100 text-green-800 border-green-300">Valid</Badge>
+                          : <Badge className="ml-2 bg-red-100 text-red-800 border-red-300">Not valid</Badge>}
+                      </div>
+                      <div>
+                        <span className="font-medium">Proof of income :</span>
+                        {tenant.tenant_document_income_valid
+                          ? <Badge className="ml-2 bg-green-100 text-green-800 border-green-300">Valid</Badge>
+                          : <Badge className="ml-2 bg-red-100 text-red-800 border-red-300">Not valid</Badge>}
+                      </div>
+                      <div>
+                        <span className="font-medium">Tax notice :</span>
+                        {tenant.tenant_document_tax_valid
+                          ? <Badge className="ml-2 bg-green-100 text-green-800 border-green-300">Valid</Badge>
+                          : <Badge className="ml-2 bg-red-100 text-red-800 border-red-300">Not valid</Badge>}
+                      </div>
+                      <div>
+                        <span className="font-medium">Rent receipts :</span>
+                        {tenant.tenant_document_receipt_valid
+                          ? <Badge className="ml-2 bg-green-100 text-green-800 border-green-300">Valid</Badge>
+                          : <Badge className="ml-2 bg-red-100 text-red-800 border-red-300">Not valid</Badge>}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               </CardContent>
             </Card>
 
@@ -227,22 +285,22 @@ export default function TenantDetailPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Heart className="w-5 h-5" />
-                  Informations personnelles
+                  Personal Information
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <span className="text-sm font-medium text-gray-600">Statut fumeur</span>
+                    <span className="text-sm font-medium text-gray-600">Smoking status</span>
                     <div className="text-sm">{tenant.smoking_status}</div>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-600">Animaux</span>
+                    <span className="text-sm font-medium text-gray-600">Pets</span>
                     <div className="text-sm">{tenant.pets && tenant.pets.length > 0 ? tenant.pets.join(", ") : "Aucun"}</div>
                   </div>
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-gray-600">Langues</span>
+                  <span className="text-sm font-medium text-gray-600">Languages</span>
                   <div className="flex flex-wrap gap-1 mt-1">
                     {tenant.languages && tenant.languages.length > 0 ? tenant.languages.map((lang, index) => (
                       <Badge key={index} variant="secondary" className="text-xs">
@@ -252,7 +310,7 @@ export default function TenantDetailPage() {
                   </div>
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-gray-600">Style de vie</span>
+                  <span className="text-sm font-medium text-gray-600">Lifestyle</span>
                   <div className="text-sm mt-1">{tenant.lifestyle_description || "Non renseigné"}</div>
                 </div>
               </CardContent>
@@ -264,15 +322,15 @@ export default function TenantDetailPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <GraduationCap className="w-5 h-5" />
-                Réponses à l'entretien
+                Interview Responses
               </CardTitle>
-              <CardDescription>Réponses détaillées du locataire</CardDescription>
+              <CardDescription>Detailed responses from the tenant</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {tenant.interview_responses ? (
                 <pre className="bg-gray-50 p-3 rounded text-xs">{JSON.stringify(tenant.interview_responses, null, 2)}</pre>
               ) : (
-                <span className="text-xs">Aucune réponse enregistrée</span>
+                <span className="text-xs">No response recorded</span>
               )}
             </CardContent>
           </Card>

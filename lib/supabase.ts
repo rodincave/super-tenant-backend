@@ -55,6 +55,8 @@ export interface TenantProfile {
   employment_type?: string
   company_name?: string
   monthly_income?: number
+  income_interview?: string | number
+  income_documents?: string | number
   guarantor_type?: string
   guarantor_income?: number
   smoking_status?: string
@@ -83,4 +85,10 @@ export interface TenantProfile {
   updated_at?: string
   created_by?: string
   languages?: string[]
+  pros?: string
+  cons?: string
+  tenant_document_id_valid?: boolean
+  tenant_document_income_valid?: boolean
+  tenant_document_tax_valid?: boolean
+  tenant_document_receipt_valid?: boolean
 }
