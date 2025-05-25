@@ -3,13 +3,27 @@ import { createClient } from "@/lib/supabase"
 
 export const runtime = "nodejs"
 
-export async function POST(_req: NextRequest, context: { params: Promise<{ tenantId: string }> }) {
-  console.log("[SCORER] Handler POST appelé")
+// CORS handler
+function withCORS(response: NextResponse) {
+  response.headers.set("Access-Control-Allow-Origin", "*")
+  response.headers.set("Access-Control-Allow-Methods", "POST, OPTIONS")
+  response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+  return response
+}
+
+export async function OPTIONS(request: NextRequest, context: { params: Promise<{ tenantId: string }> }) {
   const { tenantId } = await context.params
-  console.log(`[SCORER] tenantId reçu : ${tenantId}`)
+  console.log(`[SCORER][API] OPTIONS call at ${new Date().toISOString()} for tenantId=${tenantId}`)
+  return withCORS(new NextResponse(null, { status: 204 }))
+}
+
+export async function POST(_req: NextRequest, context: { params: Promise<{ tenantId: string }> }) {
+  const { tenantId } = await context.params
+  console.log(`[SCORER][API] POST call at ${new Date().toISOString()} for tenantId=${tenantId}`)
+  console.log("[SCORER] Handler POST appelé")
   if (!tenantId) {
     console.error('[SCORER][ERROR] tenantId manquant ou invalide')
-    return NextResponse.json({ error: "Missing tenantId" }, { status: 400 })
+    return withCORS(NextResponse.json({ error: "Missing tenantId" }, { status: 400 }))
   }
 
   const supabase = createClient()
@@ -23,7 +37,7 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ tenan
   console.log('[SCORER] Résultat requête tenant:', { tenant, tenantError })
   if (tenantError || !tenant) {
     console.error('[SCORER][ERROR] Tenant introuvable ou erreur:', tenantError)
-    return NextResponse.json({ error: tenantError?.message || "Tenant not found" }, { status: 404 })
+    return withCORS(NextResponse.json({ error: tenantError?.message || "Tenant not found" }, { status: 404 }))
   }
 
   // 2. Récupérer les préférences du propriétaire (le seul owner de la base)
@@ -33,7 +47,7 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ tenan
     .limit(1)
     .single()
   if (ownerError || !ownerPrefs) {
-    return NextResponse.json({ error: ownerError?.message || "Owner preferences not found" }, { status: 404 })
+    return withCORS(NextResponse.json({ error: ownerError?.message || "Owner preferences not found" }, { status: 404 }))
   }
 
   // Log des infos utilisées (formatées)
@@ -70,7 +84,7 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ tenan
   // 4. Appeler OpenAI
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) {
-    return NextResponse.json({ error: "Missing OpenAI API key" }, { status: 500 })
+    return withCORS(NextResponse.json({ error: "Missing OpenAI API key" }, { status: 500 }))
   }
   const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -90,7 +104,7 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ tenan
   })
   if (!openaiRes.ok) {
     const err = await openaiRes.text()
-    return NextResponse.json({ error: "OpenAI error: " + err }, { status: 500 })
+    return withCORS(NextResponse.json({ error: "OpenAI error: " + err }, { status: 500 }))
   }
   const openaiData = await openaiRes.json()
   console.log("[SCORER] Réponse brute du LLM:", JSON.stringify(openaiData, null, 2))
@@ -108,7 +122,7 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ tenan
   console.log("[SCORER] SCORE généré par le LLM :", score)
 
   if (isNaN(score) || score < 0 || score > 100) {
-    return NextResponse.json({ error: "Invalid score from OpenAI: " + content }, { status: 500 })
+    return withCORS(NextResponse.json({ error: "Invalid score from OpenAI: " + content }, { status: 500 }))
   }
 
   // 5. Mettre à jour le score, pros et cons dans Supabase
@@ -117,9 +131,9 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ tenan
     .update({ score, pros, cons })
     .eq("id", tenantId)
   if (updateError) {
-    return NextResponse.json({ error: updateError.message }, { status: 500 })
+    return withCORS(NextResponse.json({ error: updateError.message }, { status: 500 }))
   }
 
   // 6. Retourner le score
-  return NextResponse.json({ success: true, score, pros, cons })
+  return withCORS(NextResponse.json({ success: true, score, pros, cons }))
 } 
