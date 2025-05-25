@@ -9,14 +9,17 @@ import { Star, Calendar, Eye, ArrowLeft, Filter } from "lucide-react"
 import Link from "next/link"
 import { useTenantProfiles } from "@/hooks/use-tenant-profiles"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { toast } from "sonner"
 
 export default function TenantsPage() {
-  const { tenants, loading, error, updateTenantStatus, sendSchedulingLink, isSupabaseConfigured } = useTenantProfiles()
+  const { tenants, loading, error, updateTenantStatus, sendSchedulingLink, isSupabaseConfigured, refetch } = useTenantProfiles()
   const [selectedTenants, setSelectedTenants] = useState<string[]>([])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [sentPayload, setSentPayload] = useState<any | null>(null)
   const [sentUrl, setSentUrl] = useState<string | null>(null)
+  const [scoring, setScoring] = useState<string | null>(null)
+  const [tenantsState, setTenantsState] = useState(tenants || [])
 
   const handleSelectTenant = (tenantId: string) => {
     setSelectedTenants((prev) => (prev.includes(tenantId) ? prev.filter((id) => id !== tenantId) : [...prev, tenantId]))
@@ -52,6 +55,32 @@ export default function TenantsPage() {
     setSelectedTenants((prev) => prev.filter((id) => id !== tenantId))
   }
 
+  const handleScore = async (tenantId: string) => {
+    setScoring(tenantId)
+    try {
+      const res = await fetch(`/api/scorer/${tenantId}`, { method: "POST" })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Erreur lors du scoring")
+      await refetch()
+      toast.success(`Score mis à jour : ${data.score}`)
+    } catch (e: any) {
+      toast.error(e.message)
+    } finally {
+      setScoring(null)
+    }
+  }
+
+  const handleRemoveProsConsScore = async (tenantId: string) => {
+    try {
+      const res = await fetch(`/api/tenants/${tenantId}/remove-pros-cons-score`, { method: 'POST' })
+      if (!res.ok) throw new Error('Failed to remove pros/cons & score')
+      toast.success('Pros, cons & score removed!')
+      refetch()
+    } catch (e: any) {
+      toast.error(e.message)
+    }
+  }
+
   const getScoreColor = (score: number) => {
     if (score >= 90) return "bg-green-500"
     if (score >= 80) return "bg-blue-500"
@@ -74,8 +103,11 @@ export default function TenantsPage() {
     }
   }
 
-  // Trier les locataires par score décroissant
-  const sortedTenants = [...tenants].sort((a, b) => (b.score || 0) - (a.score || 0))
+  // Utiliser tenantsState si modifié, sinon tenants
+  const displayedTenants = tenantsState.length ? tenantsState : tenants
+
+  // Trier les locataires par score décroissant à partir de displayedTenants
+  const sortedTenants = [...displayedTenants].sort((a, b) => (b.score || 0) - (a.score || 0))
   // Récupérer les IDs des 3 meilleurs
   const topTenantIds = sortedTenants.slice(0, 3).map(t => t.id)
 
@@ -119,14 +151,14 @@ export default function TenantsPage() {
 
           {successMessage && (
             <Alert className="mb-6 border-green-400 bg-green-50">
-              <div className="font-semibold mb-1 text-green-800">Succès</div>
+              <div className="font-semibold mb-1 text-green-800">Success</div>
               <AlertDescription>{successMessage}</AlertDescription>
             </Alert>
           )}
 
           {errorMessage && (
             <Alert variant="destructive" className="mb-6">
-              <div className="font-semibold mb-1">Erreur lors de l'envoi du lien</div>
+              <div className="font-semibold mb-1">Error sending link</div>
               <AlertDescription>{errorMessage}</AlertDescription>
               {sentPayload && (
                 <pre className="bg-gray-100 rounded p-2 mt-2 text-xs overflow-x-auto">{JSON.stringify(sentPayload, null, 2)}</pre>
@@ -136,122 +168,169 @@ export default function TenantsPage() {
 
           {/* Tenant Cards Grid */}
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {sortedTenants?.map((tenant) => (
-              <Card
-                key={tenant.id ? tenant.id : ''}
-                className={`relative transition-all duration-200 hover:shadow-lg ${
-                  selectedTenants.includes(tenant.id ? tenant.id : '') ? "ring-2 ring-blue-500 bg-blue-50" : "" 
-                } ${topTenantIds.includes(tenant.id) ? "ring-2 ring-green-500 bg-green-50" : ""}`}
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <Avatar>
-                        <AvatarImage
-                          src="/placeholder.svg"
-                          alt={`${tenant.first_name} ${tenant.last_name}`}
-                        />
-                        <AvatarFallback>
-                          {`${tenant.first_name} ${tenant.last_name}`
-                            .split(" ")
-                            .map((n) => n[0])
-                            .join("")}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <CardTitle className="text-lg flex items-center gap-2">{`${tenant.first_name} ${tenant.last_name}`}
-                          {topTenantIds.includes(tenant.id) && (
-                            <span className="inline-block px-2 py-0.5 rounded bg-green-100 text-green-800 text-xs font-semibold ml-2">Top 3</span>
+            {sortedTenants?.map((tenant) => {
+              const localTenant = displayedTenants.find((t) => t.id === tenant.id) || tenant
+              return (
+                <Card
+                  key={tenant.id ? tenant.id : ''}
+                  className={`relative transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 bg-white/90 border-0 shadow-md rounded-2xl p-1 ${
+                    selectedTenants.includes(tenant.id ? tenant.id : '') ? "ring-2 ring-blue-400 bg-blue-50/80" : ""
+                  } ${topTenantIds.includes(tenant.id) ? "ring-2 ring-green-400 bg-green-50/80" : ""}`}
+                  style={{ minHeight: 370 }}
+                >
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-4">
+                        <div>
+                          <CardTitle className="text-xl font-bold flex items-center gap-2 text-gray-900">{`${tenant.first_name} ${tenant.last_name}`}
+                            {topTenantIds.includes(tenant.id) && (
+                              <span className="inline-block px-2 py-0.5 rounded-full bg-green-200 text-green-900 text-xs font-semibold ml-2 shadow">🥇 Top 3</span>
+                            )}
+                          </CardTitle>
+                          <CardDescription className="text-gray-600 flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1"><svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M16 7a4 4 0 01-8 0"/><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 014-4h0a4 4 0 014 4v2"/></svg>{tenant.profession}</span>
+                          </CardDescription>
+                          {(tenant.email || tenant.phone) && (
+                            <div className="flex gap-2 mt-1 text-xs text-gray-500">
+                              {tenant.email && <span className="inline-flex items-center gap-1"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M22 6l-10 7L2 6"/></svg>{tenant.email}</span>}
+                              {tenant.phone && <span className="inline-flex items-center gap-1"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M22 16.92V19a2 2 0 01-2 2A18 18 0 013 5a2 2 0 012-2h2.09a2 2 0 012 1.72c.13.81.36 1.6.7 2.34a2 2 0 01-.45 2.11l-.27.27a16 16 0 006.29 6.29l.27-.27a2 2 0 012.11-.45c.74.34 1.53.57 2.34.7A2 2 0 0122 16.92z"/></svg>{tenant.phone}</span>}
+                            </div>
                           )}
-                        </CardTitle>
-                        <CardDescription>
-                          {tenant.profession}
-                        </CardDescription>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <div
+                          className={`px-3 py-1 rounded-full text-white text-base font-bold shadow ${getScoreColor(tenant.score || 0)}`}
+                        >
+                          {tenant.score ?? "-"}%
+                        </div>
+                        <div className="flex items-center gap-0.5">
+                          {[...Array(5)].map((_, i) => (
+                            <Star
+                              key={i}
+                              className={`w-4 h-4 ${i < Math.floor((tenant.score || 0) / 20) ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`}
+                            />
+                          ))}
+                        </div>
                       </div>
                     </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <div
-                        className={`px-2 py-1 rounded-full text-white text-sm font-medium ${getScoreColor(tenant.score || 0)}`}
-                      >
-                        {tenant.score ?? "-"}%
+                  </CardHeader>
+                  <CardContent className="space-y-3 pt-0">
+                    {/* Key Info */}
+                    <div className="grid grid-cols-2 gap-2 text-sm mb-1 break-words">
+                      <div>
+                        <span className="font-medium text-gray-700">Income:</span>
+                        <div className="text-green-700 font-semibold">
+                          {typeof tenant.income_interview === 'number' && tenant.income_interview > 0
+                            ? tenant.income_interview.toLocaleString() + ' €/mois'
+                            : (typeof tenant.income_interview === 'string' && tenant.income_interview.trim() !== ''
+                              ? tenant.income_interview
+                              : (typeof tenant.income_documents === 'number' && tenant.income_documents > 0
+                                ? tenant.income_documents.toLocaleString() + ' €/mois'
+                                : (typeof tenant.income_documents === 'string' && tenant.income_documents.trim() !== ''
+                                  ? tenant.income_documents
+                                  : (typeof tenant.monthly_income === 'number' && tenant.monthly_income > 0
+                                    ? tenant.monthly_income.toLocaleString() + ' €/mois'
+                                    : (typeof tenant.guarantor_income === 'number' && tenant.guarantor_income > 0
+                                      ? tenant.guarantor_income.toLocaleString() + ' €/mois (garant)'
+                                      : '-')))))}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            className={`w-3 h-3 ${i < Math.floor((tenant.score || 0) / 20) ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}`}
-                          />
-                        ))}
+                      <div>
+                        <span className="font-medium text-gray-700">Guarantor:</span>
+                        <div>{tenant.guarantor_type || "-"}</div>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-700">Employment type:</span>
+                        <div>{tenant.employment_type || "-"}</div>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-700">Company:</span>
+                        <div>{tenant.company_name || "-"}</div>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="font-medium text-gray-700">Lifestyle:</span>
+                        <div>{tenant.lifestyle_description || "-"}</div>
                       </div>
                     </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Key Info */}
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <span className="font-medium">Income:</span>
-                      <div className="text-green-600 font-medium">{tenant.monthly_income?.toLocaleString()}€/month</div>
-                    </div>
-                    <div>
-                      <span className="font-medium">Guarantor:</span>
-                      <div>{tenant.guarantor_type}</div>
-                    </div>
-                    <div>
-                      <span className="font-medium">Lifestyle:</span>
-                      <div>{tenant.lifestyle_description}</div>
-                    </div>
-                  </div>
-                  {/* Match Reasons */}
-                  <div>
-                    <span className="text-sm font-medium text-gray-700">Why this matches:</span>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {tenant.matched_preferences?.map((reason, index) => (
-                        <Badge key={index} variant="secondary" className="text-xs">
-                          {reason}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                  {/* Highlights */}
-                  <div>
-                    <span className="text-sm font-medium text-gray-700">Highlights:</span>
-                    <ul className="text-sm text-gray-600 mt-1">
-                      {tenant.compatibility_reasons?.slice(0, 2).map((highlight, index) => (
-                        <li key={index} className="flex items-center gap-1">
-                          <div className="w-1 h-1 bg-blue-500 rounded-full"></div>
-                          {highlight}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  {/* Action Buttons */}
-                  <div className="flex gap-2 pt-2">
-                    <Link href={`/tenants/${tenant.id}`} className="flex-1">
-                      <Button variant="outline" size="sm" className="w-full">
-                        <Eye className="w-4 h-4 mr-1" />
-                        View Details
-                      </Button>
-                    </Link>
-                    {selectedTenants.includes(tenant.id ? tenant.id : '') ? (
-                      <Button size="sm" className="flex-1" onClick={() => handleSendSchedulingEmail(tenant.id ? tenant.id : '')}>
-                        <Calendar className="w-4 h-4 mr-1" />
-                        Send Schedule
-                      </Button>
-                    ) : (
+                    {/* Pros and Cons */}
+                    {tenant.pros && (
+                      <div className="mt-1">
+                        <div className="font-semibold text-green-700 mb-1 flex items-center gap-1">✅ Pros
+                        </div>
+                        <ul className="list-none text-green-900 text-sm bg-green-50/80 rounded-lg p-2 shadow-inner space-y-1">
+                          {tenant.pros.split(/\n|\r|\r\n|\- /).filter(Boolean).map((pro, idx) => (
+                            <li key={idx} className="flex items-start gap-2"><span className="mt-0.5">•</span> <span>{pro.replace(/^[-•\s]*/, "")}</span></li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {tenant.cons && (
+                      <div className="mt-1">
+                        <div className="font-semibold text-red-700 mb-1 flex items-center gap-1">❌ Cons
+                        </div>
+                        <ul className="list-none text-red-900 text-sm bg-red-50/80 rounded-lg p-2 shadow-inner space-y-1">
+                          {tenant.cons.split(/\n|\r|\r\n|\- /).filter(Boolean).map((con, idx) => (
+                            <li key={idx} className="flex items-start gap-2"><span className="mt-0.5">•</span> <span>{con.replace(/^[-•\s]*/, "")}</span></li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {/* Action Buttons */}
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      <div className="flex-1 min-w-[120px]">
+                        {tenant.id ? (
+                          <Link href={`/tenants/${tenant.id}`}>
+                            <Button variant="secondary" size="sm" className="w-full shadow hover:scale-[1.03] transition-transform">
+                              <Eye className="w-4 h-4 mr-1" />
+                              View profile
+                            </Button>
+                          </Link>
+                        ) : (
+                          <Button variant="secondary" size="sm" className="w-full" disabled>
+                            <Eye className="w-4 h-4 mr-1" />
+                            No profile
+                          </Button>
+                        )}
+                      </div>
                       <Button
                         size="sm"
                         variant="outline"
-                        className="flex-1"
-                        onClick={() => handleSelectTenant(tenant.id ? tenant.id : '')}
+                        className="flex-1 min-w-[120px] shadow hover:scale-[1.03] transition-transform"
+                        onClick={() => handleScore(tenant.id ? tenant.id : '')}
+                        disabled={scoring === tenant.id}
                       >
-                        Select
+                        {scoring === tenant.id ? "Scoring..." : "Score"}
                       </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                      {selectedTenants.includes(tenant.id ? tenant.id : '') ? (
+                        <Button size="sm" className="flex-1 min-w-[120px] shadow hover:scale-[1.03] transition-transform" onClick={() => handleSendSchedulingEmail(tenant.id ? tenant.id : '')}>
+                          <Calendar className="w-4 h-4 mr-1" />
+                          Send appointment link
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 min-w-[120px] shadow hover:scale-[1.03] transition-transform"
+                          onClick={() => handleSelectTenant(tenant.id ? tenant.id : '')}
+                        >
+                          Select
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="flex-1 min-w-[120px] shadow hover:scale-[1.03] transition-transform"
+                        onClick={() => handleRemoveProsConsScore(tenant.id ? tenant.id : '')}
+                        disabled={!tenant.id}
+                      >
+                        Remove pros/cons & score
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
           </div>
           {/* Selected Actions */}
           {selectedTenants.length > 0 && (

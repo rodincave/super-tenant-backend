@@ -32,6 +32,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 
 import { useTenantProfiles } from "@/hooks/use-tenant-profiles"
 
@@ -45,7 +46,9 @@ export default function TenantsTablePage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [professionFilter, setProfessionFilter] = useState("all")
-  const [selectedTenants, setSelectedTenants] = useState<number[]>([])
+  const [selectedTenants, setSelectedTenants] = useState<string[]>([])
+  const [scoring, setScoring] = useState<string | null>(null)
+  const [tenantsState, setTenantsState] = useState(tenants || [])
   const router = useRouter()
 
   // Sorting function
@@ -115,6 +118,28 @@ export default function TenantsTablePage() {
     if (sortField !== field) return <ArrowUpDown className="w-4 h-4" />
     return sortDirection === "asc" ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />
   }
+
+  // Ajout d'une fonction pour scorer un tenant
+  const handleScore = async (tenantId: string) => {
+    setScoring(tenantId)
+    try {
+      const res = await fetch(`/api/scorer/${tenantId}`, { method: "POST" })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Erreur lors du scoring")
+      // Met à jour le score dans l'état local
+      setTenantsState((prev) =>
+        prev.map((t) => (t.id === tenantId ? { ...t, score: data.score } : t))
+      )
+      toast.success(`Score mis à jour : ${data.score}`)
+    } catch (e: any) {
+      toast.error(e.message)
+    } finally {
+      setScoring(null)
+    }
+  }
+
+  // Remplace filteredAndSortedTenants par tenantsState si modifié
+  const displayedTenants = tenantsState.length ? tenantsState : filteredAndSortedTenants
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -219,7 +244,7 @@ export default function TenantsTablePage() {
           {/* Results Summary */}
           <div className="mb-4">
             <p className="text-sm text-gray-600">
-              Showing {filteredAndSortedTenants.length} of {tenants?.length || 0} tenants
+              Showing {displayedTenants.length} of {tenants?.length || 0} tenants
               {selectedTenants.length > 0 && ` • ${selectedTenants.length} selected`}
             </p>
           </div>
@@ -237,7 +262,7 @@ export default function TenantsTablePage() {
                           className="rounded"
                           onChange={(e) => {
                             if (e.target.checked) {
-                              setSelectedTenants(filteredAndSortedTenants.map((t) => t.id))
+                              setSelectedTenants(displayedTenants.map((t) => String(t.id)))
                             } else {
                               setSelectedTenants([])
                             }
@@ -314,18 +339,18 @@ export default function TenantsTablePage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredAndSortedTenants.map((tenant) => (
+                    {displayedTenants.map((tenant) => (
                       <TableRow key={tenant.id} className="hover:bg-gray-50">
                         <TableCell>
                           <input
                             type="checkbox"
                             className="rounded"
-                            checked={selectedTenants.includes(tenant.id)}
+                            checked={selectedTenants.includes(String(tenant.id))}
                             onChange={(e) => {
                               if (e.target.checked) {
-                                setSelectedTenants([...selectedTenants, tenant.id])
+                                setSelectedTenants([...selectedTenants, String(tenant.id)])
                               } else {
-                                setSelectedTenants(selectedTenants.filter((id) => id !== tenant.id))
+                                setSelectedTenants(selectedTenants.filter((id) => id !== String(tenant.id)))
                               }
                             }}
                           />
@@ -334,31 +359,31 @@ export default function TenantsTablePage() {
                           <div className="flex items-center gap-3">
                             <Avatar className="w-8 h-8">
                               <AvatarImage
-                                src={tenant.avatar || "/placeholder.svg"}
-                                alt={`${tenant.first_name} ${tenant.last_name}`}
+                                src={(tenant as any).avatar || "/placeholder.svg"}
+                                alt={`${tenant.first_name ?? "?"} ${tenant.last_name ?? "?"}`}
                               />
                               <AvatarFallback>
-                                {`${tenant.first_name} ${tenant.last_name}`
+                                {`${tenant.first_name ?? "?"} ${tenant.last_name ?? "?"}`
                                   .split(" ")
                                   .map((n) => n[0])
                                   .join("")}
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <div className="font-medium">{`${tenant.first_name} ${tenant.last_name}`}</div>
+                              <div className="font-medium">{`${tenant.first_name ?? "?"} ${tenant.last_name ?? "?"}`}</div>
                               <div className="text-sm text-gray-500">{tenant.email}</div>
                             </div>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <span className={getScoreColor(tenant.score)}>{tenant.score}%</span>
+                            <span className={getScoreColor(Number(tenant.score ?? 0))}>{tenant.score ?? "-"}%</span>
                             <div className="flex">
                               {[...Array(5)].map((_, i) => (
                                 <Star
                                   key={i}
                                   className={`w-3 h-3 ${
-                                    i < Math.floor(tenant.score / 20)
+                                    i < Math.floor(Number(tenant.score ?? 0) / 20)
                                       ? "fill-yellow-400 text-yellow-400"
                                       : "text-gray-300"
                                   }`}
@@ -369,33 +394,31 @@ export default function TenantsTablePage() {
                         </TableCell>
                         <TableCell>
                           <div>
-                            <div className="font-medium">{tenant.profession}</div>
-                            <div className="text-sm text-gray-500">{tenant.company}</div>
+                            <div className="font-medium">{tenant.profession ?? "-"}</div>
+                            <div className="text-sm text-gray-500">{(tenant as any).company ?? "-"}</div>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="font-medium text-green-600">{tenant.monthly_income?.toLocaleString()}€</div>
-                          <div className="text-sm text-gray-500">{tenant.employment_type}</div>
+                          <div className="font-medium text-green-600">{tenant.monthly_income ? tenant.monthly_income.toLocaleString() : "-"}€</div>
+                          <div className="text-sm text-gray-500">{tenant.employment_type ?? "-"}</div>
                         </TableCell>
-                        <TableCell>{tenant.age}</TableCell>
+                        <TableCell>{(tenant as any).age ?? "-"}</TableCell>
                         <TableCell>
                           <div className="text-sm">
-                            {tenant.guarantor_type}
+                            {tenant.guarantor_type ?? "-"}
                             {tenant.guarantor_income && (
                               <div className="text-gray-500">{tenant.guarantor_income.toLocaleString()}€/month</div>
                             )}
                           </div>
                         </TableCell>
-                        <TableCell>{tenant.stayDuration}</TableCell>
+                        <TableCell>{(tenant as any).stayDuration ?? "-"}</TableCell>
                         <TableCell>
-                          <Badge className={getStatusColor(tenant.application_status)}>
-                            {tenant.application_status}
-                          </Badge>
+                          <Badge className={getStatusColor(tenant.application_status ?? "")}>{tenant.application_status ?? "-"}</Badge>
                         </TableCell>
-                        <TableCell>{new Date(tenant.application_date).toLocaleDateString()}</TableCell>
+                        <TableCell>{tenant.application_date ? new Date(tenant.application_date).toLocaleDateString() : "-"}</TableCell>
                         <TableCell>
-                          <Badge variant={tenant.documentsComplete ? "default" : "destructive"}>
-                            {tenant.documentsComplete ? "Complete" : "Incomplete"}
+                          <Badge variant={(tenant as any).documentsComplete ? "default" : "destructive"}>
+                            {(tenant as any).documentsComplete ? "Complete" : "Incomplete"}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -420,6 +443,13 @@ export default function TenantsTablePage() {
                                 Schedule Interview
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => handleScore(String(tenant.id))}
+                                disabled={scoring === String(tenant.id)}
+                                className="text-blue-600"
+                              >
+                                {scoring === String(tenant.id) ? "Scoring..." : "Score"}
+                              </DropdownMenuItem>
                               <DropdownMenuItem className="text-green-600">Approve</DropdownMenuItem>
                               <DropdownMenuItem className="text-red-600">Reject</DropdownMenuItem>
                             </DropdownMenuContent>
