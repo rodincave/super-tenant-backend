@@ -1,30 +1,61 @@
-# Owner preference survey
+# 🏡 Tenant Finder
 
-*Automatically synced with your [v0.dev](https://v0.dev) deployments*
+A hackathon project designed to help property owners **quickly evaluate candidates** and **select the best tenants** based on customized criteria.
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/nikolays-projects-6ef86e55/v0-owner-preference-survey)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/QJnH9u84ATY)
+Our intelligent agent-based system automates the screening process, giving property owners more confidence and speed in their rental decisions.
 
-## Overview
+## 🚀 Demo
 
-This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
+Check out our live app: https://v0-owner-preference-survey.vercel.app/
 
-## Deployment
 
-Your project is live at:
 
-**[https://vercel.com/nikolays-projects-6ef86e55/v0-owner-preference-survey](https://vercel.com/nikolays-projects-6ef86e55/v0-owner-preference-survey)**
+## 🧠 System Overview
 
-## Build your app
+Our solution uses **multiple agents and automation tools** to streamline the tenant selection process:
 
-Continue building your app on:
+### 🛠 Tech Stack
 
-**[https://v0.dev/chat/projects/QJnH9u84ATY](https://v0.dev/chat/projects/QJnH9u84ATY)**
+* **[n8n](https://n8n.io/)** – Workflow automation to coordinate agent tasks
+* **[Formaloo](https://www.formaloo.com/)** – Collect applicant data with dynamic forms
+* **[Vercel AI SDK](https://sdk.vercel.ai/)** – AI-enhanced decision-making
+* **[Trypcrip](https://trypecrip.com/)** – Custom agent interactions (placeholder link if not public)
+* **[Supabase](https://supabase.com/)** – Real-time database and authentication
+* **[ElevenLabs](https://www.elevenlabs.io/)** – Voice synthesis for dynamic communication
 
-## How It Works
+---
 
-1. Create and modify your project using [v0.dev](https://v0.dev)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+## 🔄 How It Works — At a Glance
+The process starts with just a link to your property listing. From there, everything is automated:
+
+🏠 You upload a listing link (e.g., from Airbnb, Idealista, etc.)
+
+🤖 We scrape property info and generate an agent for your property
+
+📞 You receive a phone number – candidates call in and leave voice messages
+
+🧠 Agents evaluate the calls using LLMs and voice-to-text + scoring logic
+
+✅ Useful candidates are approved automatically
+
+🥇 Best candidates are ranked and suggested
+
+📅 You can directly book visits with the best ones
+
+---
+
+## 🖼️ Project Highlight
+
+![Company Demo Page](./images/company_page.png)
+
+---
+
+## 🤝 Team & Hackathon
+
+This project was built in Tech paris in by 
+- Titouan Albouy titouan@tacl-group.com
+- Nikolay Rodionov nikolay@pob.ventures.
+- Antonio Contreras antonio61231@gmail.com
+
+> Our goal was to create a scalable, smart, and user-friendly tool that redefines how property owners screen tenants.
+
